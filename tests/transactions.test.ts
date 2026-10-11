@@ -32,6 +32,79 @@ describe("API - transacciones", () => {
   });
 
   
+  it("debe rechazar una transacción con importe negativo", async () => {
+    const response = await request(app)
+      .post("/api/transactions")
+      .send({
+        description: "Importe inválido",
+        amount: -100,
+        type: "expense",
+        categoryId: 1,
+        transactionDate: "2026-10-11",
+      });
+
+    expect(response.status).toBe(400);
+  });
+
+  
+  it("debe rechazar un tipo de movimiento inválido", async () => {
+    const response = await request(app)
+      .post("/api/transactions")
+      .send({
+        description: "Tipo inválido",
+        amount: 100,
+        type: "transfer",
+        categoryId: 1,
+        transactionDate: "2026-10-11",
+      });
+
+    expect(response.status).toBe(400);
+  });
+
+  
+  it("debe rechazar una transacción sin descripción", async () => {
+    const response = await request(app)
+      .post("/api/transactions")
+      .send({
+        description: "",
+        amount: 100,
+        type: "expense",
+        categoryId: 1,
+        transactionDate: "2026-10-11",
+      });
+
+    expect(response.status).toBe(400);
+  });
+
+  
+  it("debe rechazar una fecha inválida", async () => {
+    const response = await request(app)
+      .post("/api/transactions")
+      .send({
+        description: "Fecha inválida",
+        amount: 100,
+        type: "expense",
+        categoryId: 1,
+        transactionDate: "2026-02-30",
+      });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("debe rechazar un ID de categoría inválido", async () => {
+    const response = await request(app)
+      .post("/api/transactions")
+      .send({
+        description: "Categoría inválida",
+        amount: 100,
+        type: "expense",
+        categoryId: 0,
+        transactionDate: "2026-10-11",
+      });
+
+    expect(response.status).toBe(400);
+  });
+  
   it("debe devolver la lista de transacciones", async () => {
     const response = await request(app).get("/api/transactions");
 
