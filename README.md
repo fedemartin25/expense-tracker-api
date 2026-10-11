@@ -198,3 +198,32 @@ The database includes two tables:
 * **`transactions`**: stores income and expense records, including their amount, date and optional category.
 
 The schema uses constraints to validate transaction amounts and types, and foreign keys to maintain category relationships.
+
+## Test Database Setup
+
+The automated tests use a separate PostgreSQL database to avoid modifying development data.
+
+1. Create a PostgreSQL database named `expense_tracker_test`.
+
+2. Execute the database schema provided in the Database Setup section against `expense_tracker_test` as well, including the category seed data.
+
+3. Create a `.env.test` file in the project root with the following configuration:
+
+   ```dotenv
+   PORT=3001
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_NAME=expense_tracker_test
+   DB_USER=postgres
+   DB_PASSWORD=your_postgres_password
+   ```
+
+4. Replace `your_postgres_password` with your local PostgreSQL password.
+
+5. Run the tests:
+
+   ```bash
+   npm test
+   ```
+
+Never commit `.env` or `.env.test` files to the repository.
