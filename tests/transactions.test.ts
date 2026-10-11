@@ -120,4 +120,111 @@ describe("API - transacciones", () => {
       )
     ).toBe(true);
   });
+
+  it("debe actualizar una transacción existente", async () => {
+    // Primero creamos una transacción para actualizar.
+    const created = await request(app)
+      .post("/api/transactions")
+      .send({
+        description: "Transacción para actualizar",
+        amount: 500,
+        type: "expense",
+        categoryId: 1,
+        transactionDate: "2026-10-11",
+      });
+
+    expect(created.status).toBe(201);
+
+    const id = created.body.transaction.id;
+
+    // Después actualizamos esa transacción.
+    const response = await request(app)
+      .put(`/api/transactions/${id}`)
+      .send({
+        description: "Transacción actualizada",
+        amount: 750,
+        type: "expense",
+        categoryId: 1,
+        transactionDate: "2026-10-12",
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.message).toBe(
+      "Movimiento actualizado correctamente."
+    );
+    expect(response.body.transaction.description).toBe(
+      "Transacción actualizada"
+    );
+    expect(Number(response.body.transaction.amount)).toBe(750);
+    expect(response.body.transaction.transactionDate).toBe("2026-10-12");
+  });
+
+  it("debe eliminar una transacción existente", async () => {
+    const created = await request(app)
+      .post("/api/transactions")
+      .send({
+        description: "Transacción para eliminar",
+        amount: 300,
+        type: "expense",
+        categoryId: 1,
+        transactionDate: "2026-10-11",
+      });
+
+    expect(created.status).toBe(201);
+
+    const id = created.body.transaction.id;
+
+    const response = await request(app).delete(
+      `/api/transactions/${id}`
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body.message).toBe(
+      "Movimiento eliminado correctamente."
+    );
+    expect(response.body.id).toBe(id);
+
+    const check = await request(app).get(
+      `/api/transactions?categoryId=1`
+    );
+
+    expect(
+      check.body.transactions.some(
+        (transaction: { id: number }) => transaction.id === id
+      )
+    ).toBe(false);
+  });
+
+  it("debe rechazar la actualización con un ID inválido", async () => {
+    const response = await request(app)
+      .put("/api/transactions/abc")
+      .send({
+        description: "Movimiento de prueba",
+        amount: 100,
+        type: "expense",
+        categoryId: 1,
+        transactionDate: "2026-10-11",
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe("ID inválido.");
+  });
+
+  it("debe devolver 404 al actualizar un movimiento inexistente", async () => {
+    const response = await request(app)
+      .put("/api/transactions/999999999")
+      .send({
+        description: "Movimiento inexistente",
+        amount: 100,
+        type: "expense",
+        categoryId: 1,
+        transactionDate: "2026-10-11",
+      });
+
+    expect(response.status).toBe(404);
+    expect(response.body.message).toBe(
+      "Movimiento no encontrado."
+    );
+  });
+
 });
