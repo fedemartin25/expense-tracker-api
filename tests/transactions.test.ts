@@ -227,4 +227,38 @@ describe("API - transacciones", () => {
     );
   });
 
+  it("debe devolver el resumen financiero de un período", async () => {
+    const response = await request(app).get(
+      "/api/transactions/summary?from=2026-09-01&to=2026-09-30"
+    );
+
+    expect(response.status).toBe(200);
+    expect(Number(response.body.income)).toBe(0);
+    expect(Number(response.body.expenses)).toBe(0);
+    expect(Number(response.body.balance)).toBe(0);
+    expect(Number(response.body.transactionCount)).toBe(0);
+  });
+
+  it("debe rechazar una fecha inválida en el resumen", async () => {
+    const response = await request(app).get(
+      "/api/transactions/summary?from=2026-02-30&to=2026-03-31"
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe(
+      "El parámetro from debe tener formato YYYY-MM-DD."
+    );
+  });
+
+  it("debe rechazar un rango de fechas invertido en el resumen", async () => {
+    const response = await request(app).get(
+      "/api/transactions/summary?from=2026-10-31&to=2026-10-01"
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe(
+      "La fecha inicial no puede ser posterior a la final."
+    );
+  });
+
 });
