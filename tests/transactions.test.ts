@@ -121,6 +121,83 @@ describe("API - transacciones", () => {
     ).toBe(true);
   });
 
+  it("debe filtrar las transacciones por tipo de movimiento", async () => {
+    const response = await request(app).get(
+      "/api/transactions?type=expense"
+    );
+
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body.transactions)).toBe(true);
+
+    expect(
+      response.body.transactions.every(
+        (transaction: { type: string }) => transaction.type === "expense"
+      )
+    ).toBe(true);
+  });
+
+  it("debe filtrar las transacciones por categoría", async () => {
+    const response = await request(app).get(
+      "/api/transactions?categoryId=1"
+    );
+
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body.transactions)).toBe(true);
+
+    expect(
+      response.body.transactions.every(
+        (transaction: { categoryId: number | string }) =>
+          Number(transaction.categoryId) === 1
+      )
+    ).toBe(true);
+  });
+
+  it("debe filtrar las transacciones por rango de fechas", async () => {
+    const response = await request(app).get(
+      "/api/transactions?from=2026-10-01&to=2026-10-31"
+    );
+
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body.transactions)).toBe(true);
+
+    expect(
+      response.body.transactions.every(
+        (transaction: { transactionDate: string }) => {
+          const date = String(transaction.transactionDate).slice(0, 10);
+          return date >= "2026-10-01" && date <= "2026-10-31";
+        }
+      )
+    ).toBe(true);
+  });
+
+  it("debe combinar los filtros de tipo, categoría y fechas", async () => {
+    const response = await request(app).get(
+      "/api/transactions?type=expense&categoryId=1&from=2026-10-01&to=2026-10-31"
+    );
+
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body.transactions)).toBe(true);
+
+    expect(
+      response.body.transactions.every(
+        (transaction: {
+          type: string;
+          categoryId: number | string;
+          transactionDate: string;
+        }) => {
+          const date = String(transaction.transactionDate).slice(0, 10);
+
+          return (
+            transaction.type === "expense" &&
+            Number(transaction.categoryId) === 1 &&
+            date >= "2026-10-01" &&
+            date <= "2026-10-31"
+          );
+        }
+      )
+    ).toBe(true);
+  });
+
   it("debe actualizar una transacción existente", async () => {
     // Primero creamos una transacción para actualizar.
     const created = await request(app)
