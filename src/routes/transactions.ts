@@ -10,7 +10,33 @@ const validTypes = ["income", "expense"] as const;
 // Consultar movimientos
 
 router.get("/", async (req: Request, res: Response) => {
-  const { type, categoryId, from, to } = req.query;
+  const { type, categoryId, from, to, page, limit } = req.query;
+
+  const parsedPage = page === undefined ? 1 : Number(page);
+  const parsedLimit = limit === undefined ? 20 : Number(limit);
+
+  if (
+    !Number.isSafeInteger(parsedPage) ||
+    parsedPage <= 0 ||
+    !Number.isSafeInteger(parsedLimit) ||
+    parsedLimit <= 0 ||
+    parsedLimit > 100
+  ) {
+    res.status(400).json({
+      message:
+        "La página debe ser un entero positivo y el límite debe estar entre 1 y 100.",
+    });
+    return;
+  }
+
+  const offset = (parsedPage - 1) * parsedLimit;
+
+  if (!Number.isSafeInteger(offset)) {
+    res.status(400).json({
+      message: "El número de página es demasiado grande.",
+    });
+    return;
+  }
 
   if (
     type !== undefined &&
@@ -94,6 +120,22 @@ router.get("/", async (req: Request, res: Response) => {
       ? `WHERE ${conditions.join(" AND ")}`
       : "";
 
+    
+    const countResult = await pool.query(
+      `SELECT COUNT(*) AS total
+       FROM transactions t
+       ${whereClause}`,
+      values
+    );
+
+    const total = Number(countResult.rows[0].total);
+
+    const paginatedValues = [
+      ...values,
+      parsedLimit,
+      offset,
+    ];
+
     const result = await pool.query(
       `SELECT
          t.id,
@@ -107,14 +149,20 @@ router.get("/", async (req: Request, res: Response) => {
        FROM transactions t
        LEFT JOIN categories c ON c.id = t.category_id
        ${whereClause}
-       ORDER BY t.transaction_date DESC, t.id DESC`,
-      values
+       ORDER BY t.transaction_date DESC, t.id DESC
+       LIMIT $${values.length + 1}
+       OFFSET $${values.length + 2}`,
+      paginatedValues
     );
 
     res.json({
-      total: result.rowCount ?? 0,
+      total,
+      page: parsedPage,
+      limit: parsedLimit,
+      totalPages: Math.ceil(total / parsedLimit),
       transactions: result.rows,
     });
+
   } catch (error) {
     console.error("Error al consultar movimientos:", error);
     res.status(500).json({
@@ -406,26 +454,30 @@ router.get("/summary", async (req: Request, res: Response) => {
     return;
   }
 
-  try {
-    const result = await pool.query(
-      `SELECT
-         COALESCE(SUM(amount) FILTER (WHERE type = 'income'), 0) AS income,
-         COALESCE(SUM(amount) FILTER (WHERE type = 'expense'), 0) AS expenses,
-         COALESCE(SUM(amount) FILTER (WHERE type = 'income'), 0)
-         - COALESCE(SUM(amount) FILTER (WHERE type = 'expense'), 0) AS balance,
-         COUNT(*) AS "transactionCount"
-       FROM transactions
-       WHERE ($1::date IS NULL OR transaction_date >= $1::date)
-         AND ($2::date IS NULL OR transaction_date <= $2::date)`,
-      [from ?? null, to ?? null]
-    );
+    try {
+      const result = await pool.query(
+        `SELECT
+          COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS income,
+          COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS expenses,
+          COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END), 0) AS balance,
+          COUNT(*) AS "transactionCount"
+        FROM transactions
+        WHERE ($1::date IS NULL OR transaction_date >= $1::date)
+          AND ($2::date IS NULL OR transaction_date <= $2::date)`,
+        [from ?? null, to ?? null]
+      );
 
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error("Error al calcular resumen:", error);
-    res.status(500).json({
-      message: "No se pudo calcular el resumen financiero.",
-    });
+      res.json({
+        income: result.rows[0].income,
+        expenses: result.rows[0].expenses,
+        balance: result.rows[0].balance,
+        transactionCount: Number(result.rows[0].transactionCount),
+      });
+    } catch (error) {
+      console.error("Error al calcular resumen:", error);
+      res.status(500).json({
+        message: "No se pudo calcular el resumen financiero.",
+      });
   }
 });
 

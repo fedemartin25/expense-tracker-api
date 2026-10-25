@@ -105,20 +105,57 @@ describe("API - transacciones", () => {
     expect(response.status).toBe(400);
   });
   
-  it("debe devolver la lista de transacciones", async () => {
-    const response = await request(app).get("/api/transactions");
+  it("debe devolver la primera página de transacciones", async () => {
+    const response = await request(app).get(
+      "/api/transactions?limit=100"
+    );
 
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty("total");
     expect(typeof response.body.total).toBe("number");
+    expect(response.body.page).toBe(1);
+    expect(response.body.limit).toBe(100);
+    expect(response.body.totalPages).toBe(
+      Math.ceil(response.body.total / 100)
+    );
     expect(Array.isArray(response.body.transactions)).toBe(true);
+    expect(response.body.transactions.length).toBeLessThanOrEqual(100);
+  });
+  
+  it("debe permitir elegir la página y el límite", async () => {
+    const response = await request(app).get(
+      "/api/transactions?page=1&limit=5"
+    );
 
-    expect(
-      response.body.transactions.some(
-        (transaction: { description: string }) =>
-          transaction.description === "Test automático"
-      )
-    ).toBe(true);
+    expect(response.status).toBe(200);
+    expect(response.body.page).toBe(1);
+    expect(response.body.limit).toBe(5);
+    expect(response.body.transactions.length).toBeLessThanOrEqual(5);
+    expect(response.body.totalPages).toBe(
+      Math.ceil(response.body.total / 5)
+    );
+  });
+  
+  it("debe rechazar una página igual a cero", async () => {
+    const response = await request(app).get(
+      "/api/transactions?page=0"
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe(
+      "La página debe ser un entero positivo y el límite debe estar entre 1 y 100."
+    );
+  });
+
+  it("debe rechazar un límite superior a 100", async () => {
+    const response = await request(app).get(
+      "/api/transactions?limit=101"
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe(
+      "La página debe ser un entero positivo y el límite debe estar entre 1 y 100."
+    );
   });
 
   it("debe filtrar las transacciones por tipo de movimiento", async () => {
